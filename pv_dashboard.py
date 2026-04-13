@@ -11,11 +11,23 @@ st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layou
 
 hide_st_style = """
             <style>
-            /* 1. 狙击最新版 Toolbar：隐藏所有外链（铅笔和 GitHub 猫头）保留按钮（Share 和菜单） */
-            [data-testid="stToolbar"] a {display: none !important;}
-            /* 2. 兼容旧版容器 */
-            .viewerBadge_container {display: none !important;}
-            .viewerBadge_link {display: none !important;}
+            /* 1. 狙击所有的 <a> 标签外链 */
+            [data-testid="stToolbar"] a { display: none !important; }
+            
+            /* 2. 狙击所有带有特定悬停提示词的 <button> (精确封杀猫头和铅笔) */
+            [data-testid="stToolbar"] button[title*="GitHub"],
+            [data-testid="stToolbar"] button[title*="source"],
+            [data-testid="stToolbar"] button[title*="Fork"],
+            [data-testid="stToolbar"] button[title*="Edit"],
+            [data-testid="stToolbar"] button[aria-label*="GitHub"],
+            [data-testid="stToolbar"] button[aria-label*="source"],
+            [data-testid="stToolbar"] button[aria-label*="Fork"],
+            [data-testid="stToolbar"] button[aria-label*="Edit"] {
+                display: none !important;
+            }
+            
+            /* 3. 顺手把底部的 Manage App 按钮也隐藏掉，让界面更像独立软件 */
+            .stAppDeployButton { display: none !important; }
             </style>
             """
 
