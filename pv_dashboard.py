@@ -11,31 +11,17 @@ st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layou
 
 hide_st_style = """
     <style>
-    /* 隐藏右上角工具栏中所有无关按钮 */
-    [data-testid="stToolbar"] a { display: none !important; }
-    [data-testid="stToolbar"] button { display: none !important; }
-    
-    /* 隐藏右下角 Streamlit 默认的“Manage App”按钮 */
-    .stAppDeployButton { display: none !important; }
-    
-    /* 确保隐藏特定含 GitHub 链接标题的按钮 */
-    button[title*="GitHub"],
-    button[title*="source"],
-    button[title*="Fork"],
-    button[title*="Edit"],
-    button[aria-label*="GitHub"],
-    button[aria-label*="source"],
-    button[aria-label*="Fork"],
-    button[aria-label*="Edit"] {
-        display: none !important;
+    /* 隐藏右下角 "Manage App" 按钮 */
+    .stAppViewContainer .stButton { 
+        display: none !important; 
     }
 
-    /* 隐藏特定的铅笔按钮 */
-    svg[data-icon="pencil"] { display: none !important; }
-
+    /* 保留右上角的三个点菜单栏 */
+    [data-testid="stToolbar"] {
+        display: block !important;
+    }
     </style>
 """
-# st.markdown(hide_st_style, unsafe_allow_html=True)
 
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
