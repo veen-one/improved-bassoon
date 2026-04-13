@@ -55,7 +55,7 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("**💰 3. 交易员实盘摩擦约束 (元/MWh)**")
 price_buffer = st.sidebar.number_input("买入抢单缓冲差价 (元/MWh)", value=20.0, step=5.0, format="%.1f")
 friction_margin = st.sidebar.number_input("套利触发最小价差死区 (元/MWh)", value=30.0, step=5.0, format="%.1f")
-max_trade_vol = st.sidebar.number_input("单时点最大盘面深度(MWh)", value=60.0, step=10.0)
+max_trade_vol = st.sidebar.number_input("单时点最大盘面深度(MWh)", value=38.0, step=10.0)
 
 
 # ================= 主界面：日内全要素配置区 =================
@@ -88,29 +88,30 @@ for i in range(24):
     historical_contract_h = edited_base_df.loc[i, "累计仓位(MWh)"]
     p_penalty_h = edited_base_df.loc[i, "偏差罚款单价(元/MWh)"] 
     
-    # 动态计算此时点的超缺额指标 (用于最终结果表格展示)
-    val_shortage = historical_actual_h * coef_actual - historical_contract_h * coef_contract_short
-    val_excess = historical_actual_h * coef_actual - historical_contract_h * coef_contract_over
+    # 【逻辑重构核心】：干预前的基础 = 历史底仓 + 今日预测数据 (此时还没进行D+3操作)
+    cum_actual_pre = historical_actual_h + q_forecast
+    cum_contract_pre = historical_contract_h + q_annual_h
     
-    # 修改数据源逻辑：统一surplus/shortage值用于图表绘制，并保留文本用于表格
-    if val_shortage < 0:
-        status_oe = f"缺额 {val_shortage:.2f}"
-        net_oe_value = val_shortage
-    elif val_excess > 0:
-        status_oe = f"超额 +{val_excess:.2f}"
-        net_oe_value = val_excess
+    # 基于干预前的总数据，计算此时点最真实的初始超缺额压力
+    val_shortage_pre = cum_actual_pre * coef_actual - cum_contract_pre * coef_contract_short
+    val_excess_pre = cum_actual_pre * coef_actual - cum_contract_pre * coef_contract_over
+    
+    if val_shortage_pre < 0:
+        status_oe = f"缺额 {val_shortage_pre:.2f}"
+        net_oe_value_pre = val_shortage_pre
+    elif val_excess_pre > 0:
+        status_oe = f"超额 +{val_excess_pre:.2f}"
+        net_oe_value_pre = val_excess_pre
     else:
         status_oe = "安全 0.00"
-        net_oe_value = 0.00
+        net_oe_value_pre = 0.00
 
-    cum_actual = historical_actual_h + q_forecast
-    cum_contract_base = historical_contract_h + q_annual_h
+    # D+3 策略判定的基础基于干预前的水位
+    initial_dev_vol = cum_actual_pre - cum_contract_pre
+    initial_dev_pct = initial_dev_vol / cum_contract_pre if cum_contract_pre > 0 else 0
     
-    initial_dev_vol = cum_actual - cum_contract_base
-    initial_dev_pct = initial_dev_vol / cum_contract_base if cum_contract_base > 0 else 0
-    
-    is_shortage_alert = (cum_actual * coef_actual) < (cum_contract_base * coef_contract_short) 
-    is_excess_alert = (cum_actual * coef_actual) > (cum_contract_base * coef_contract_over)  
+    is_shortage_alert = (cum_actual_pre * coef_actual) < (cum_contract_pre * coef_contract_short) 
+    is_excess_alert = (cum_actual_pre * coef_actual) > (cum_contract_pre * coef_contract_over)  
     
     if is_excess_alert:
         strategy = "🚨 触发超额红线 -> 强制拉高合约制造欠发"
@@ -171,15 +172,29 @@ for i in range(24):
         direction = "不动"
         d3_price = 0.0
         
-    cum_contract_base += d3_volume 
-    final_dev_pct = (cum_actual - cum_contract_base) / cum_contract_base if cum_contract_base > 0 else 0
+    # 干预后(买卖落地后)的最终合约数据
+    cum_contract_post = cum_contract_pre + d3_volume 
+    final_dev_pct = (cum_actual_pre - cum_contract_post) / cum_contract_post if cum_contract_post > 0 else 0
+    
+    # 动态计算干预后最终的超缺额数据
+    val_shortage_post = cum_actual_pre * coef_actual - cum_contract_post * coef_contract_short
+    val_excess_post = cum_actual_pre * coef_actual - cum_contract_post * coef_contract_over
+    if val_shortage_post < 0:
+        net_oe_value_post = val_shortage_post
+    elif val_excess_post > 0:
+        net_oe_value_post = val_excess_post
+    else:
+        net_oe_value_post = 0.00
     
     results.append({
         "时点": hours_1_to_24[i],
-        "初始超缺额状态": status_oe,
-        "初始超缺额数据": net_oe_value, # 新增数值字段用于图表4
-        "上网": cum_actual,            # 新增数值字段用于图表4
-        "合约": cum_contract_base,     # 新增数值字段用于图表4
+        "初始超缺额状态": status_oe,          # 表格展示用：操作前的压力评估
+        "初始超缺额数据": net_oe_value_pre,   # 图表虚线用：历史+预测，D+3执行前
+        "最终超缺额数据": net_oe_value_post,  # 图表实线用：执行D+3买卖后
+        "上网_初始": cum_actual_pre,          # 图表虚线用：上网预测汇总
+        "上网_最终": cum_actual_pre,          # 图表实线用：(由于买卖不影响上网，两者重合)
+        "合约_初始": cum_contract_pre,        # 图表虚线用：未做交易前的合约总和
+        "合约_最终": cum_contract_post,       # 图表实线用：做完交易后的合约总和
         "初始偏差率": initial_dev_pct,
         "策略判定": strategy,
         "动作方向": direction,
@@ -238,25 +253,29 @@ fig3.layout.yaxis.tickformat = '.1%'
 fig3.update_layout(title="图3: 水库对冲监控视图 (紫线越平稳，策略越优)", height=350, hovermode="x unified")
 st.plotly_chart(fig3, use_container_width=True)
 
-# 【新增图4】：紧跟在图3下方，完全复刻图二的三条平滑曲线结构，并替换偏差为初始超缺额
+# 【新增图4】：紧跟在图3下方，完全复刻三条平滑曲线结构，并加入干预前后的虚实线对比
 fig4 = go.Figure()
 
-# 1. 合约曲线 (淡蓝色) - 使用 shape='spline' 实现平滑曲线
-fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["合约"], mode='lines+markers', name='合约', 
+# --- 虚线组 (干预前 / 评估策略前的初始压力状态) ---
+fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["合约_初始"], mode='lines', name='干预前: 合约', 
+                          line=dict(color='#3498db', width=2, dash='dash', shape='spline'), opacity=0.6))
+fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["上网_初始"], mode='lines', name='干预前: 上网', 
+                          line=dict(color='#e67e22', width=2, dash='dash', shape='spline'), opacity=0.6))
+fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["初始超缺额数据"], mode='lines', name='干预前: 超缺额', 
+                          line=dict(color='#f1c40f', width=2, dash='dash', shape='spline'), opacity=0.6))
+
+# --- 实线组 (干预后 / 执行D+3买卖后的最终状态) ---
+fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["合约_最终"], mode='lines+markers', name='干预后: 合约', 
                           line=dict(color='#3498db', width=3, shape='spline'), 
                           marker=dict(symbol='circle', size=6, color='white', line=dict(color='#3498db', width=2))))
-
-# 2. 上网曲线 (橙色)
-fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["上网"], mode='lines+markers', name='上网', 
+fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["上网_最终"], mode='lines+markers', name='干预后: 上网', 
                           line=dict(color='#e67e22', width=3, shape='spline'), 
                           marker=dict(symbol='circle', size=6, color='white', line=dict(color='#e67e22', width=2))))
-
-# 3. 初始超缺额曲线 (黄色，替代了原来的偏差电量)
-fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["初始超缺额数据"], mode='lines+markers', name='初始超缺额', 
+fig4.add_trace(go.Scatter(x=df_results["时点"], y=df_results["最终超缺额数据"], mode='lines+markers', name='干预后: 超缺额', 
                           line=dict(color='#f1c40f', width=3, shape='spline'), 
                           marker=dict(symbol='circle', size=6, color='white', line=dict(color='#f1c40f', width=2))))
 
-fig4.update_layout(title="图4: 仓位上网与初始超缺额走势曲线", height=380, hovermode="x unified", margin=dict(l=20, r=20, t=40, b=20))
+fig4.update_layout(title="图4: 仓位上网与超缺额走势曲线 (虚线: D+3交易前预测状态 | 实线: D+3交易落地后)", height=380, hovermode="x unified", margin=dict(l=20, r=20, t=40, b=20))
 fig4.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.3)')
 fig4.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.3)', title="数据指标 (MWh)")
 st.plotly_chart(fig4, use_container_width=True)
@@ -265,7 +284,7 @@ st.plotly_chart(fig4, use_container_width=True)
 # ================= 详情结果表 =================
 with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=True):
     # 拼接时排除掉新增的图表专用数值列，保持台账表格原本的纯净样式
-    display_results = df_results.drop(columns=["时点", "初始超缺额数据", "上网", "合约"])
+    display_results = df_results.drop(columns=["时点", "初始超缺额数据", "最终超缺额数据", "上网_初始", "上网_最终", "合约_初始", "合约_最终"])
     display_df_full = pd.concat([edited_forecast_df, display_results], axis=1)
     
     st.dataframe(display_df_full.style.format({
