@@ -241,5 +241,12 @@ with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=T
         "初始偏差率": "{:.2%}", "D+3申报量": "{:.2f}",
         "D+3指导价": "{:.2f}", "买入止损线": lambda x: f"{x:.2f}" if x > 0 else "-",
         "操作后最终水位": "{:.2%}"
-    }).map(lambda x: "background-color: #ffcccc" if "🚨" in str(x) or "⚠️" in str(x) or "缺额" in str(x) or "超额 +" in str(x) else ("background-color: #fff2cc" if "🛑" in str(x) else ("background-color: #f2f2f2" if "⏸️" in str(x) else ("background-color: #e6ffe6" if "✅" in str(x) else ""))), subset=["策略判定", "初始超缺额状态"]), 
+    }).map(
+        # 【终极UI修复】：使用 RGBA 20% 透明度。白天是小清新，黑夜是高级暗红。自动适配字体颜色！
+        lambda x: "background-color: rgba(255, 75, 75, 0.2);" if "🚨" in str(x) or "⚠️" in str(x) or "缺额" in str(x) or "超额 +" in str(x) 
+        else ("background-color: rgba(255, 170, 0, 0.2);" if "🛑" in str(x) 
+        else ("background-color: rgba(128, 128, 128, 0.2);" if "⏸️" in str(x) 
+        else ("background-color: rgba(0, 200, 0, 0.2);" if "✅" in str(x) else ""))), 
+        subset=["策略判定", "初始超缺额状态"]
+    ), 
     use_container_width=True, height=880)
