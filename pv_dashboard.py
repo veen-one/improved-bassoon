@@ -10,17 +10,25 @@ import numpy as np
 st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layout="wide")
 
 hide_st_style = """
-    <style>
-    /* 隐藏右下角 "Manage App" 按钮 */
-    .stAppViewContainer .stButton { 
-        display: none !important; 
-    }
+<style>
+/* 1) 隐藏右下角 “Manage app” 浮动按钮 */
+button[title="Manage app"] {
+    display: none !important;
+}
 
-    /* 保留右上角的三个点菜单栏 */
-    [data-testid="stToolbar"] {
-        display: block !important;
-    }
-    </style>
+/* 2) 隐藏右上角工具栏里的“铅笔(编辑)”与“GitHub”图标（不影响三点菜单） */
+[data-testid="stToolbar"] a[title="Edit"],
+[data-testid="stToolbar"] a[title="View source on GitHub"],
+[data-testid="stToolbar"] a[aria-label="Edit"],
+[data-testid="stToolbar"] a[aria-label*="GitHub"] {
+    display: none !important;
+}
+
+/* 3) 明确保留右上角三点菜单 */
+[data-testid="stToolbar"] {
+    display: block !important;
+}
+</style>
 """
 
 st.markdown(hide_st_style, unsafe_allow_html=True)
