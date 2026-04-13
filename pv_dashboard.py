@@ -10,26 +10,32 @@ import numpy as np
 st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layout="wide")
 
 hide_st_style = """
-            <style>
-            /* 1. 狙击所有的 <a> 标签外链 */
-            [data-testid="stToolbar"] a { display: none !important; }
-            
-            /* 2. 狙击所有带有特定悬停提示词的 <button> (精确封杀猫头和铅笔) */
-            [data-testid="stToolbar"] button[title*="GitHub"],
-            [data-testid="stToolbar"] button[title*="source"],
-            [data-testid="stToolbar"] button[title*="Fork"],
-            [data-testid="stToolbar"] button[title*="Edit"],
-            [data-testid="stToolbar"] button[aria-label*="GitHub"],
-            [data-testid="stToolbar"] button[aria-label*="source"],
-            [data-testid="stToolbar"] button[aria-label*="Fork"],
-            [data-testid="stToolbar"] button[aria-label*="Edit"] {
-                display: none !important;
-            }
-            
-            /* 3. 顺手把底部的 Manage App 按钮也隐藏掉，让界面更像独立软件 */
-            .stAppDeployButton { display: none !important; }
-            </style>
-            """
+    <style>
+    /* 隐藏右上角工具栏中所有无关按钮 */
+    [data-testid="stToolbar"] a { display: none !important; }
+    [data-testid="stToolbar"] button { display: none !important; }
+    
+    /* 隐藏右下角 Streamlit 默认的“Manage App”按钮 */
+    .stAppDeployButton { display: none !important; }
+    
+    /* 确保隐藏特定含 GitHub 链接标题的按钮 */
+    button[title*="GitHub"],
+    button[title*="source"],
+    button[title*="Fork"],
+    button[title*="Edit"],
+    button[aria-label*="GitHub"],
+    button[aria-label*="source"],
+    button[aria-label*="Fork"],
+    button[aria-label*="Edit"] {
+        display: none !important;
+    }
+
+    /* 隐藏特定的铅笔按钮 */
+    svg[data-icon="pencil"] { display: none !important; }
+
+    </style>
+"""
+# st.markdown(hide_st_style, unsafe_allow_html=True)
 
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
