@@ -33,6 +33,31 @@ header [data-testid="stToolbarActionButton"] > button:has([data-testid="stToolba
 
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
+
+import streamlit.components.v1 as components
+
+components.html(
+    """
+    <script>
+      const killManageApp = () => {
+        const btn = document.querySelector('button[data-testid="manage-app-button"]');
+        if (btn) {
+          btn.style.setProperty('display','none','important');
+          btn.style.setProperty('visibility','hidden','important');
+          btn.style.setProperty('opacity','0','important');
+          btn.style.setProperty('pointer-events','none','important');
+        }
+      };
+
+      // 立刻执行 + 之后持续兜底（防止被重新渲染）
+      killManageApp();
+      setInterval(killManageApp, 300);
+    </script>
+    """,
+    height=0,
+)
+
+
 st.title("⚡ 湖北光伏 D+3 时点级交易沙盘 ")
 st.markdown("💡 **核心特性**：1-24时点标准 | **数据修改实时联动** | 纯净原生输入 | 动态止损线")
 
