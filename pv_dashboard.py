@@ -6,6 +6,20 @@ import numpy as np
 
 # ================= 页面全局配置 =================
 st.set_page_config(page_title="湖北光伏 D+3 现货实战沙盘", layout="wide")
+
+# 【新增：UI 隐藏魔法】隐藏右上角的 GitHub 图标、Deploy 按钮和菜单栏，打造纯净商业级UI
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+
+# ================= 页面全局配置 =================
+st.set_page_config(page_title="湖北光伏 D+3 现货实战沙盘", layout="wide")
 st.title("⚡ 湖北光伏 D+3 时点级交易沙盘 ")
 st.markdown("💡 **核心特性**：1-24时点标准 | **数据修改实时联动** | 纯净原生输入 | 动态止损线")
 
