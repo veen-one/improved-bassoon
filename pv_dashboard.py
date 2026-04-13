@@ -11,21 +11,18 @@ st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layou
 
 hide_st_style = """
 <style>
-/* 1) 隐藏右下角 “Manage app” 浮动按钮 */
-button[title="Manage app"] {
+/* 1) 隐藏右下角 “Manage app” */
+button[title="Manage app"]{
+    display:none !important;
+}
+
+/* 2) 隐藏右上角两个图标按钮（铅笔 / GitHub），保留三点菜单 */
+header [data-testid="stToolbarActionButton"] > button:has([data-testid="stToolbarActionButtonIcon"]) {
     display: none !important;
 }
 
-/* 2) 隐藏右上角工具栏里的“铅笔(编辑)”与“GitHub”图标（不影响三点菜单） */
-[data-testid="stToolbar"] a[title="Edit"],
-[data-testid="stToolbar"] a[title="View source on GitHub"],
-[data-testid="stToolbar"] a[aria-label="Edit"],
-[data-testid="stToolbar"] a[aria-label*="GitHub"] {
-    display: none !important;
-}
-
-/* 3) 明确保留右上角三点菜单 */
-[data-testid="stToolbar"] {
+/* 3) 保留右上角三点菜单（主菜单） */
+[data-testid="stMainMenu"] {
     display: block !important;
 }
 </style>
