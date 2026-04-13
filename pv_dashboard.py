@@ -11,11 +11,14 @@ st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layou
 
 hide_st_style = """
             <style>
-            /* 隐藏右上角的 GitHub 猫头和铅笔(Edit)图标 */
+            /* 1. 狙击最新版 Toolbar：隐藏所有外链（铅笔和 GitHub 猫头）保留按钮（Share 和菜单） */
+            [data-testid="stToolbar"] a {display: none !important;}
+            /* 2. 兼容旧版容器 */
             .viewerBadge_container {display: none !important;}
             .viewerBadge_link {display: none !important;}
             </style>
             """
+
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 st.title("⚡ 湖北光伏 D+3 时点级交易沙盘 ")
