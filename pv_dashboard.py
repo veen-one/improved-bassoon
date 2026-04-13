@@ -7,7 +7,17 @@ import numpy as np
 
 
 # ================= 页面全局配置 =================
-st.set_page_config(page_title="湖北光伏 D+3 现货实战沙盘", layout="wide")
+st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layout="wide")
+
+hide_st_style = """
+            <style>
+            /* 隐藏右上角的 GitHub 猫头和铅笔(Edit)图标 */
+            .viewerBadge_container {display: none !important;}
+            .viewerBadge_link {display: none !important;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 st.title("⚡ 湖北光伏 D+3 时点级交易沙盘 ")
 st.markdown("💡 **核心特性**：1-24时点标准 | **数据修改实时联动** | 纯净原生输入 | 动态止损线")
 
