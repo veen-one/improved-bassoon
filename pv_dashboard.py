@@ -12,12 +12,10 @@ st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layou
 hide_st_style = """
 <style>
 /* 1) 隐藏右下角 “Manage app” */
-button[data-testid="manage-app-button"],
-button[title="Manage app"],
-button[title="管理应用"]{
-    display: none !important;
-}
 
+button[data-testid="manage-app-button"]{
+  display: none !important;
+}
 /* 2) 隐藏右上角两个图标按钮（铅笔 / GitHub），保留三点菜单 */
 header [data-testid="stToolbarActionButton"] > button:has([data-testid="stToolbarActionButtonIcon"]) {
     display: none !important;
