@@ -39,23 +39,42 @@ import streamlit.components.v1 as components
 components.html(
     """
     <script>
-      const killManageApp = () => {
-        const btn = document.querySelector('button[data-testid="manage-app-button"]');
-        if (btn) {
-          btn.style.setProperty('display','none','important');
-          btn.style.setProperty('visibility','hidden','important');
-          btn.style.setProperty('opacity','0','important');
-          btn.style.setProperty('pointer-events','none','important');
-        }
-      };
+      function hideStuff(root=document) {
+        // 1) 右下角 管理应用 / manage app
+        root.querySelectorAll('button[data-testid="manage-app-button"]').forEach(el => {
+          el.style.setProperty('display','none','important');
+          el.style.setProperty('visibility','hidden','important');
+          el.style.setProperty('opacity','0','important');
+          el.style.setProperty('pointer-events','none','important');
+        });
 
-      // 立刻执行 + 之后持续兜底（防止被重新渲染）
-      killManageApp();
-      setInterval(killManageApp, 300);
+        // 2) 顶部 Fork 文本（只隐藏 label 为 Fork 的那一个，不误伤其他 label）
+        root.querySelectorAll('span[data-testid="stToolbarActionButtonLabel"]').forEach(el => {
+          if ((el.textContent || '').trim() === 'Fork') {
+            // 通常 span 在 button 内，隐藏整个按钮更干净
+            const btn = el.closest('button') || el;
+            btn.style.setProperty('display','none','important');
+          }
+        });
+
+        // 3) 你贴的 SVG 外层 div（class: _link_gzau3_10）
+        root.querySelectorAll('div._link_gzau3_10').forEach(el => {
+          el.style.setProperty('display','none','important');
+        });
+      }
+
+      // 先执行一次
+      hideStuff(document);
+
+      // 再用 MutationObserver 监听 DOM 变化，平台一重建就立刻隐藏
+      const obs = new MutationObserver(() => hideStuff(document));
+      obs.observe(document.documentElement, { childList: true, subtree: true });
     </script>
     """,
     height=0,
 )
+
+
 
 
 st.title("⚡ 湖北光伏 D+3 时点级交易沙盘 ")
