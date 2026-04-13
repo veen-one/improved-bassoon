@@ -8,7 +8,7 @@ import numpy as np
 # ================= 页面全局配置 =================
 st.set_page_config(page_title="湖北光伏 D+3 现货实战沙盘", layout="wide")
 st.title("⚡ 湖北光伏 D+3 时点级交易沙盘 ")
-st.markdown("💡 **核心特性**：1-24时点标准 | **彻底修复数据修改不联动问题** | 纯净原生输入 | 动态止损线")
+st.markdown("💡 **核心特性**：1-24时点标准 | **数据修改实时联动** | 纯净原生输入 | 动态止损线")
 
 hours_1_to_24 = [f"{i:02d}:00" for i in range(1, 25)]
 
