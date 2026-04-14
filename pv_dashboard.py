@@ -197,10 +197,10 @@ for i in range(24):
     # A：赚差价 (套利最优目标)
     if price_diff > friction_margin:
         profit_target_vol = q_forecast / (1 + max_dev)
-        action_str = "现货贵压低合约"
+        action_str = "现货贵 压低合约"
     elif price_diff < -friction_margin:
         profit_target_vol = q_forecast / (1 - max_dev)
-        action_str = "现货低拉高合约"
+        action_str = "现货低 拉高合约"
     else:
         profit_target_vol = q_annual_h
         action_str = "死区锁定基本盘"
