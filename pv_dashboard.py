@@ -123,7 +123,7 @@ max_trade_vol = st.sidebar.number_input("单时点最大盘面深度(MWh)", valu
 
 
 # ================= 主界面：日内全要素配置区 =================
-st.subheader("📊 24小时日内全要素配置区 (双击修改，底部瞬间联动)")
+st.subheader("📊 24小时日内全要素配置区 ")
 
 edited_forecast_df = st.data_editor(
     st.session_state.df_forecast, 
