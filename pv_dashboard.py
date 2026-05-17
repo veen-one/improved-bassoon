@@ -371,6 +371,8 @@ df_results = pd.DataFrame(results)
 #             delta_color="normal" if depth_limit_hit_count==0 else "inverse")
 
 
+
+
 # ================= 操盘手决策驾驶舱 =================
 st.divider()
 st.subheader("🎯 操盘手全天战略汇总")
@@ -391,7 +393,6 @@ met4.metric(label="触达深度次数", value=depth_limit_hit_count, delta=depth
 
 # 【新增指标】：在最右侧红圈位置展示均价
 met5.metric(label="全天度电均价 (元/MWh)", value=f"{avg_price:.2f}", delta="干预后总收益 / 总电量", delta_color="off")
-
 
 # 新增：五大财务算账指标展示区
 st.markdown("##### 💰 全盘与 D+3 现货财务测算")
