@@ -310,28 +310,9 @@ for i in range(24):
     else:
         net_oe_value_post = 0.00
     
-    # results.append({
-    #     "时点": hours_1_to_24[i],
-    #     "初始超缺额状态": status_oe,
-    #     "初始超缺额数据": net_oe_value_pre,
-    #     "最终超缺额数据": net_oe_value_post,
-    #     "上网_初始": cum_actual_pre,
-    #     "上网_最终": cum_actual_pre,
-    #     "合约_初始": cum_contract_pre,
-    #     "合约_最终": cum_contract_post,
-    #     "初始偏差率": initial_dev_pct,
-    #     "策略判定": strategy,
-    #     "动作方向": direction,
-    #     "D+3申报量": d3_volume,
-    #     "D+3指导价": d3_price,
-    #     "买入止损线": buy_limit if direction == "买入" else 0.0,
-    #     "操作后最终水位": final_dev_pct
-    # })
-
     results.append({
         "时点": hours_1_to_24[i],
-        "初始超缺额量": status_oe,
-        "初超缺额": min(0, net_oe_value_pre * p_penalty_h), # ⬅️ 箭头1新增列：小于0自动计为0
+        "初始超缺额状态": status_oe,
         "初始超缺额数据": net_oe_value_pre,
         "最终超缺额数据": net_oe_value_post,
         "上网_初始": cum_actual_pre,
@@ -344,10 +325,29 @@ for i in range(24):
         "D+3申报量": d3_volume,
         "D+3指导价": d3_price,
         "买入止损线": buy_limit if direction == "买入" else 0.0,
-        "操作后最终水位": final_dev_pct,
-        "操作后超缺额量": net_oe_value_post, # ⬅️ 箭头2新增列 (第一列)
-        "后超缺额": min(0, net_oe_value_post * p_penalty_h) # ⬅️ 箭头2新增列 (第二列)：小于0自动计为0
+        "操作后最终水位": final_dev_pct
     })
+
+    # results.append({
+    #     "时点": hours_1_to_24[i],
+    #     "初始超缺额量": status_oe,
+    #     "初超缺额": min(0, net_oe_value_pre * p_penalty_h), # ⬅️ 箭头1新增列：小于0自动计为0
+    #     "初始超缺额数据": net_oe_value_pre,
+    #     "最终超缺额数据": net_oe_value_post,
+    #     "上网_初始": cum_actual_pre,
+    #     "上网_最终": cum_actual_pre,
+    #     "合约_初始": cum_contract_pre,
+    #     "合约_最终": cum_contract_post,
+    #     "初始偏差率": initial_dev_pct,
+    #     "策略判定": strategy,
+    #     "动作方向": direction,
+    #     "D+3申报量": d3_volume,
+    #     "D+3指导价": d3_price,
+    #     "买入止损线": buy_limit if direction == "买入" else 0.0,
+    #     "操作后最终水位": final_dev_pct,
+    #     "操作后超缺额量": net_oe_value_post, # ⬅️ 箭头2新增列 (第一列)
+    #     "后超缺额": min(0, net_oe_value_post * p_penalty_h) # ⬅️ 箭头2新增列 (第二列)：小于0自动计为0
+    # })
 
     # ================= 💰 财务算账模块 (单时点计算累计) =================
     # 1. 干预前总收益 = 中长期年度电量*中长期年度电价+（（上网电量-中长期净合约电量）*实时电价）
@@ -503,40 +503,40 @@ with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=T
         #     return "background-color: rgba(50, 150, 255, 0.2);"  # 冷静蓝
         return ""
 
-    # # 渲染应用
-    # st.dataframe(display_df_full.style.format({
-    #     "预测上网电量(MWh)": "{:.2f}", "预测实时电价(元/MWh)": "{:.2f}",
-    #     "昨日D+4成交价(元/MWh)": "{:.2f}",
-    #     "年度合约量(MWh)": "{:.2f}", "年度合约价(元/MWh)": "{:.2f}",
-    #     "初始偏差率": "{:.2%}", "D+3申报量": "{:.2f}",
-    #     "D+3指导价": "{:.2f}", "买入止损线": lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and x > 0 else "-",
-    #     "操作后最终水位": "{:.2%}"
-    # }).apply(
-    #     style_action_cols, axis=1, subset=["策略判定", "动作方向"]
-    # ).map(
-    #     style_status_col, subset=["初始超缺额状态"]
-    # ), 
-    # use_container_width=True, height=880)
-
-
-
     # 渲染应用
     st.dataframe(display_df_full.style.format({
         "预测上网电量(MWh)": "{:.2f}", "预测实时电价(元/MWh)": "{:.2f}",
         "昨日D+4成交价(元/MWh)": "{:.2f}",
         "年度合约量(MWh)": "{:.2f}", "年度合约价(元/MWh)": "{:.2f}",
-        "初超缺额": "{:.2f}", # ⬅️ 新增格式化
         "初始偏差率": "{:.2%}", "D+3申报量": "{:.2f}",
         "D+3指导价": "{:.2f}", "买入止损线": lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and x > 0 else "-",
-        "操作后最终水位": "{:.2%}",
-        "操作后超缺额量": "{:.2f}", # ⬅️ 新增格式化
-        "后超缺额": "{:.2f}" # ⬅️ 新增格式化
+        "操作后最终水位": "{:.2%}"
     }).apply(
-          style_action_cols, axis=1, subset=["策略判定", "动作方向"]
+        style_action_cols, axis=1, subset=["策略判定", "动作方向"]
     ).map(
-        style_status_col, subset=["初始超缺额量"]
+        style_status_col, subset=["初始超缺额状态"]
     ), 
     use_container_width=True, height=880)
+
+
+
+    # # 渲染应用
+    # st.dataframe(display_df_full.style.format({
+    #     "预测上网电量(MWh)": "{:.2f}", "预测实时电价(元/MWh)": "{:.2f}",
+    #     "昨日D+4成交价(元/MWh)": "{:.2f}",
+    #     "年度合约量(MWh)": "{:.2f}", "年度合约价(元/MWh)": "{:.2f}",
+    #     "初超缺额": "{:.2f}", # ⬅️ 新增格式化
+    #     "初始偏差率": "{:.2%}", "D+3申报量": "{:.2f}",
+    #     "D+3指导价": "{:.2f}", "买入止损线": lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and x > 0 else "-",
+    #     "操作后最终水位": "{:.2%}",
+    #     "操作后超缺额量": "{:.2f}", # ⬅️ 新增格式化
+    #     "后超缺额": "{:.2f}" # ⬅️ 新增格式化
+    # }).apply(
+    #       style_action_cols, axis=1, subset=["策略判定", "动作方向"]
+    # ).map(
+    #     style_status_col, subset=["初始超缺额量"]
+    # ), 
+    # use_container_width=True, height=880)
 
 
 
