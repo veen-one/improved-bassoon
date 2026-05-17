@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -314,7 +315,7 @@ for i in range(24):
 results.append({
         "时点": hours_1_to_24[i],
         "初始超缺额量": status_oe,
-        "初超缺额": min(0, net_oe_value_pre * p_penalty_h), # ⬅️ 箭头1新增列：大于0自动计为0
+        "初超缺额": min(0, net_oe_value_pre * p_penalty_h), # ⬅️ 箭头1新增列：小于0自动计为0
         "初始超缺额数据": net_oe_value_pre,
         "最终超缺额数据": net_oe_value_post,
         "上网_初始": cum_actual_pre,
@@ -329,7 +330,7 @@ results.append({
         "买入止损线": buy_limit if direction == "买入" else 0.0,
         "操作后最终水位": final_dev_pct,
         "操作后超缺额量": net_oe_value_post, # ⬅️ 箭头2新增列 (第一列)
-        "后超缺额": min(0, net_oe_value_post * p_penalty_h) # ⬅️ 箭头2新增列 (第二列)：大于0自动计为0
+        "后超缺额": min(0, net_oe_value_post * p_penalty_h) # ⬅️ 箭头2新增列 (第二列)：小于0自动计为0
     })
 
     # ================= 💰 财务算账模块 (单时点计算累计) =================
@@ -357,6 +358,19 @@ results.append({
 
 df_results = pd.DataFrame(results)
 
+# # ================= 操盘手决策驾驶舱 =================
+# st.divider()
+# st.subheader("🎯 操盘手全天战略汇总")
+# met1, met2, met3, met4 = st.columns(4)
+# met1.metric(label="全天总计需买入 (MWh)", value=f"{total_buy_vol:.2f}", delta="防守补仓/平掉欠发", delta_color="inverse")
+# met2.metric(label="全天总计需卖出 (MWh)", value=f"{total_sell_vol:.2f}", delta="主动套利/吃现货差")
+# met3.metric(label="最具风险买入指导价 (元/MWh)", value=f"{max_buy_price:.2f}", delta=f"预警时点 {max_risk_hour}", delta_color="off")
+
+# depth_status = "市场流动性充足" if depth_limit_hit_count == 0 else f"需分时段提前建仓!"
+# met4.metric(label="触达深度次数", value=depth_limit_hit_count, delta=depth_status, 
+#             delta_color="normal" if depth_limit_hit_count==0 else "inverse")
+
+
 # ================= 操盘手决策驾驶舱 =================
 st.divider()
 st.subheader("🎯 操盘手全天战略汇总")
@@ -377,6 +391,7 @@ met4.metric(label="触达深度次数", value=depth_limit_hit_count, delta=depth
 
 # 【新增指标】：在最右侧红圈位置展示均价
 met5.metric(label="全天度电均价 (元/MWh)", value=f"{avg_price:.2f}", delta="干预后总收益 / 总电量", delta_color="off")
+
 
 # 新增：五大财务算账指标展示区
 st.markdown("##### 💰 全盘与 D+3 现货财务测算")
@@ -472,7 +487,23 @@ with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=T
         #     return "background-color: rgba(50, 150, 255, 0.2);"  # 冷静蓝
         return ""
 
-# 渲染应用
+    # # 渲染应用
+    # st.dataframe(display_df_full.style.format({
+    #     "预测上网电量(MWh)": "{:.2f}", "预测实时电价(元/MWh)": "{:.2f}",
+    #     "昨日D+4成交价(元/MWh)": "{:.2f}",
+    #     "年度合约量(MWh)": "{:.2f}", "年度合约价(元/MWh)": "{:.2f}",
+    #     "初始偏差率": "{:.2%}", "D+3申报量": "{:.2f}",
+    #     "D+3指导价": "{:.2f}", "买入止损线": lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and x > 0 else "-",
+    #     "操作后最终水位": "{:.2%}"
+    # }).apply(
+    #     style_action_cols, axis=1, subset=["策略判定", "动作方向"]
+    # ).map(
+    #     style_status_col, subset=["初始超缺额状态"]
+    # ), 
+    # use_container_width=True, height=880)
+
+
+  # 渲染应用
     st.dataframe(display_df_full.style.format({
         "预测上网电量(MWh)": "{:.2f}", "预测实时电价(元/MWh)": "{:.2f}",
         "昨日D+4成交价(元/MWh)": "{:.2f}",
