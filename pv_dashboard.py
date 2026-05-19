@@ -119,8 +119,8 @@ remaining_days = st.sidebar.slider("距离月底剩余交易天数 (用于均摊
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**💰 4. 交易员实盘摩擦约束 (元/MWh)**")
-price_buffer = st.sidebar.number_input("买入抢单缓冲差价 (元/MWh)", value=20.0, step=5.0, format="%.1f")
-friction_margin = st.sidebar.number_input("套利触发最小价差死区 (元/MWh)", value=30.0, step=5.0, format="%.1f")
+price_buffer = st.sidebar.number_input("买入抢单缓冲差价 (元/MWh)", value=50.0, step=5.0, format="%.1f")
+friction_margin = st.sidebar.number_input("套利触发最小价差死区 (元/MWh)", value=50.0, step=5.0, format="%.1f")
 max_trade_vol = st.sidebar.number_input("单时点最大盘面深度(MWh)", value=38.0, step=10.0)
 
 
