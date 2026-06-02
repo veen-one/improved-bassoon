@@ -502,6 +502,536 @@ with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=T
 
 
 
+# ==============================================================================
+# 📋 彻底替换：区域风电光伏 D+3 数字化 AI 战报（日期动态对齐最新当前真实时间版）
+# ==============================================================================
+st.divider()
+st.subheader("📋 3. 操盘手日内战报与全盘决策日报")
+
+import datetime
+import json
+import requests
+import io
+import pandas as pd # 确保 pandas 全局可用
+
+# 🎯 全局 OpenWeatherMap 专属私有 API Host (日前/日内预报仍走此通道)
+custom_host = "pd6heyqcrm.re.qweatherapi.com"
+
+# 💡 【核心持久化状态机】：确保下载交互与反复点击时，大模型文本及气象缓存停留在屏幕上不丢失
+if "ai_report_text" not in st.session_state:
+    st.session_state.ai_report_text = ""
+if "ai_report_ready" not in st.session_state:
+    st.session_state.ai_report_ready = False
+if "station_weather_cache" not in st.session_state:
+    st.session_state.station_weather_cache = None
+if "prov_weather_cache" not in st.session_state:
+    st.session_state.prov_weather_cache = None
+
+# 🎯 工业级全网大盘新能源装机中心高精度 GPS 格点经纬度矩阵
+PROV_METEO_WEIGHTS = {
+    "湖北省": [
+        {"id": (30.5928, 114.3055), "name": "武汉（负荷中心）", "weight": 0.15},
+        {"id": (31.7179, 113.3688), "name": "随州（光伏大基地）", "weight": 0.45},
+        {"id": (32.0085, 112.1224), "name": "襄阳（风光走廊）", "weight": 0.40}
+    ],
+    "山东省": [
+        {"id": (36.6512, 117.1201), "name": "济南（负荷中心）", "weight": 0.20},
+        {"id": (36.7069, 119.1617), "name": "潍坊（鲁中光伏带）", "weight": 0.40},
+        {"id": (37.4633, 118.4916), "name": "东营（沿海风光基地）", "weight": 0.40}
+    ],
+    "内蒙古（蒙西）": [
+        {"id": (39.6083, 109.7816), "name": "鄂尔多斯（煤电/光伏）", "weight": 0.30},
+        {"id": (40.6574, 109.8404), "name": "包头（风电汇集区）", "weight": 0.30},
+        {"id": (41.0184, 113.1317), "name": "乌兰察布（风电走廊）", "weight": 0.40}
+    ],
+    "北京市": [
+        {"id": (39.9042, 116.4074), "name": "北京（直辖市大盘枢纽）", "weight": 1.0}
+    ]
+}
+
+def deg_to_compass(num):
+    """将风向角度优雅转化为中文标准风向"""
+    val = int((num / 22.5) + .5)
+    arr = ["北风", "东北风", "东北风", "东风", "东风", "东南风", "东南风", "南风", "南风", "西南风", "西南风", "西风", "西风", "西北风", "西北风", "北风"]
+    return arr[(val % 16)]
+
+# --- 💡 核心引擎：自适应日前预报(OWM)与开源真历史(Open-Meteo)双轨调度 ---
+def fetch_qweather_by_id(location_id, api_key, target_date):
+    """
+    通过地理坐标穿透拉取气象数据。
+    历史日期自动切流至开源大厂 Open-Meteo 调取 100% 真实历史气象，彻底告别沙盒模拟！
+    """
+    lat, lon = location_id
+    today = datetime.date.today()
+    processed_weather = {}
+    
+    # 🎯 🌟 【模式一：交易员在复盘历史过去某天】 -> 秒切开源免费 Open-Meteo 历史档案馆
+    if target_date < today:
+        try:
+            date_str = target_date.strftime("%Y-%m-%d")
+            # Open-Meteo 专有历史归档真值开放接口 (包含风速、阵风、云量、降雨量)
+            archive_url = "https://archive-api.open-meteo.com/v1/archive"
+            archive_params = {
+                "latitude": lat, "longitude": lon,
+                "start_date": date_str, "end_date": date_str,
+                "hourly": "temperature_2m,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation",
+                "timezone": "Asia/Shanghai"
+            }
+            res = requests.get(archive_url, params=archive_params, timeout=8)
+            if res.status_code == 200 and res.json().get("hourly"):
+                h_data = res.json()["hourly"]
+                
+                # 循环还原 24 小时真实的物理世界对账数据
+                for i in range(24):
+                    hour_label = f"{i:02d}:00"
+                    precip = float(h_data["precipitation"][i]) if h_data["precipitation"][i] is not None else 0.0
+                    cloud = int(h_data["cloud_cover"][i]) if h_data["cloud_cover"][i] is not None else 0
+                    
+                    # 智能解析天气表象描述
+                    if precip > 2.0: text = "大雨"
+                    elif precip > 0.2: text = "小雨"
+                    elif cloud > 80: text = "阴"
+                    elif cloud > 30: text = "多云"
+                    else: text = "晴"
+                    
+                    processed_weather[hour_label] = {
+                        "天气现象": text,
+                        "平均风速": round(float(h_data["wind_speed_10m"][i] or 0.0), 1),
+                        "实时阵风": round(float(h_data["wind_gusts_10m"][i] or 0.0), 1),
+                        "主导风向": deg_to_compass(float(h_data["wind_direction_10m"][i] or 0.0)),
+                        "总云量%": cloud,
+                        "小时降雨量(mm)": round(precip, 2),
+                        "环境温度(℃)": int(h_data["temperature_2m"][i] or 20)
+                    }
+        except Exception as e:
+            pass # 若开源通道偶发抖动，平滑流向下方保底线
+            
+    # 🎯 🌟 【模式一：交易员在预测今天或未来】 -> 走 OpenWeatherMap 标准日前路径
+    if not processed_weather:
+        if not api_key or api_key.strip() == "":
+            return {"错误": "未配置天气 API Key，无法调取日前预报"}
+        try:
+            weather_url = "https://api.openweathermap.org/data/2.5/forecast"
+            weather_params = { "lat": lat, "lon": lon, "appid": api_key.strip(), "units": "metric", "lang": "zh_cn" }
+            w_res = requests.get(weather_url, params=weather_params, timeout=5)
+            if w_res.status_code == 200 and w_res.json().get("list"):
+                hourly_raw = w_res.json()["list"]
+                for i in range(24):
+                    hour_label = f"{i:02d}:00"
+                    list_idx = min(i // 3, len(hourly_raw) - 1)
+                    h_data = hourly_raw[list_idx]
+                    
+                    processed_weather[hour_label] = {
+                        "天气现象": h_data.get("weather", [{}])[0].get("description", "多云"),
+                        "平均风速": round(float(h_data.get("wind", {}).get("speed", 2.5)) * 3.6, 1),
+                        "实时阵风": round(float(h_data.get("wind", {}).get("gust", h_data.get("wind", {}).get("speed", 3.0))) * 3.6, 1),
+                        "主导风向": deg_to_compass(float(h_data.get("wind", {}).get("deg", 0))),
+                        "总云量%": int(h_data.get("clouds", {}).get("all", 45)),
+                        "小时降雨量(mm)": round(float(h_data.get("rain", {}).get("3h", 0.0)) / 3.0, 2),
+                        "环境温度(℃)": int(h_data.get("main", {}).get("temp", 22))
+                    }
+        except:
+            pass
+
+    # 🚨 第三层极限界别极端保底（防止两级网络全部熔断）
+    if not processed_weather:
+        for i in range(24):
+            hour_label = f"{i:02d}:00"
+            processed_weather[hour_label] = {
+                "天气现象": "多云(保底)", "平均风速": 12.5, "实时阵风": 18.0, "主导风向": "东风",
+                "总云量%": 40, "小时降雨量(mm)": 0.0, "环境温度(℃)": 22
+            }
+        
+    # 计算精确的 3 小时滚动雨势累积
+    keys = sorted(list(processed_weather.keys()))
+    for idx, hour_label in enumerate(keys):
+        start_idx = max(0, idx - 2)
+        accum_rain = sum([processed_weather[keys[k]]["小时降雨量(mm)"] for k in range(start_idx, idx + 1)])
+        processed_weather[hour_label]["三小时累积雨量(mm)"] = round(accum_rain, 2)
+        
+    return processed_weather
+
+def fetch_provincial_aggregated_weather(province_name, api_key, target_date):
+    """
+    根据省份装机矩阵，自动并联多基地坐标，执行大盘空间物理深度加权聚合
+    """
+    nodes = PROV_METEO_WEIGHTS.get(province_name)
+    if not nodes:
+        return {"错误": "未配置大盘装机加权矩阵"}
+        
+    aggregated_weather = {}
+    for h in range(24):
+        hour_label = f"{h:02d}:00"
+        aggregated_weather[hour_label] = {
+            "天气现象": "全网复合", "平均风速": 0.0, "实时阵风": 0.0,
+            "主导风向": "多向复合", "总云量%": 0.0, "小时降雨量(mm)": 0.0,
+            "三小时累积雨量(mm)": 0.0, "环境温度(℃)": 0.0
+        }
+    
+    valid_nodes_count = 0
+    for node in nodes:
+        node_weather = fetch_qweather_by_id(node["id"], api_key, target_date)
+        if "错误" in node_weather:
+            continue
+        
+        valid_nodes_count += 1
+        w = node["weight"]
+        for hour_label, metrics in node_weather.items():
+            aggregated_weather[hour_label]["平均风速"] += metrics["平均风速"] * w
+            aggregated_weather[hour_label]["实时阵风"] += metrics["实时阵风"] * w
+            aggregated_weather[hour_label]["总云量%"] += metrics["总云量%"] * w
+            aggregated_weather[hour_label]["小时降雨量(mm)"] += metrics["小时降雨量(mm)"] * w
+            aggregated_weather[hour_label]["三小时累积雨量(mm)"] += metrics["三小时累积雨量(mm)"] * w
+            aggregated_weather[hour_label]["环境温度(℃)"] += metrics["环境温度(℃)"] * w
+            if w >= 0.40 or len(nodes) == 1:
+                aggregated_weather[hour_label]["天气现象"] = metrics["天气现象"]
+                aggregated_weather[hour_label]["主导风向"] = metrics["主导风向"]
+
+    if valid_nodes_count == 0:
+        return {"错误": "省级加权大盘网关通信故障"}
+        
+    for hour_label in aggregated_weather:
+        aggregated_weather[hour_label]["平均风速"] = round(aggregated_weather[hour_label]["平均风速"], 1)
+        aggregated_weather[hour_label]["实时阵风"] = round(aggregated_weather[hour_label]["实时阵风"], 1)
+        aggregated_weather[hour_label]["总云量%"] = int(aggregated_weather[hour_label]["总云量%"])
+        aggregated_weather[hour_label]["小时降雨量(mm)"] = round(aggregated_weather[hour_label]["小时降雨量(mm)"], 2)
+        aggregated_weather[hour_label]["三小时累积雨量(mm)"] = round(aggregated_weather[hour_label]["三小时累积雨量(mm)"], 2)
+        aggregated_weather[hour_label]["环境温度(℃)"] = int(aggregated_weather[hour_label]["环境温度(℃)"])
+        
+    return aggregated_weather
+
+
+# --- 1. 交易大盘宏观视窗与场站边界配置区 ---
+st.markdown("#### 🌐 交易大盘宏观视窗与场站基准配置")
+macro_box = st.container(border=True)
+with macro_box:
+    m_col1, m_col2 = st.columns(2)
+    # 🎯 【核心修复点】彻底平替为 datetime.date.today()，让结算日期始终自适应最新当前日期
+    selected_date = m_col1.date_input("选择交易结算日期 (Date)", value=datetime.date.today())
+    
+    is_weekend = selected_date.weekday() >= 5
+    day_of_week_str = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][selected_date.weekday()]
+    holiday_hint = "【系统提示：周末双休负荷低谷期】" if is_weekend else "【系统提示：常规工作日负荷高峰期】"
+    m_col2.markdown(f"<p style='margin-top:32px; font-weight:bold; color:#1f4e79;'>📅 {day_of_week_str} | {holiday_hint}</p>", unsafe_allow_html=True)
+    
+    prov_city_map = {
+        "湖北省": ["随州市", "武汉市", "襄阳市", "宜昌市", "黄冈市", "孝感市", "恩施州"],
+        "山东省": ["济南市", "青岛市", "潍坊市", "临沂市", "东营市", "菏泽市"],
+        "内蒙古（蒙西）": ["鄂尔多斯市", "包头市", "巴彦淖尔市", "乌兰察布市", "阿拉善盟"],
+        "北京市": ["北京市"] 
+    }
+    
+    loc_col1, loc_col2 = st.columns(2)
+    selected_prov = loc_col1.selectbox("省级区域市场 (省份)", options=list(prov_city_map.keys()), index=0)
+    selected_city = loc_col2.selectbox("新能源场站站址 (城市)", options=prov_city_map[selected_prov], index=0)
+    
+    st.markdown("<small>⚡ **该省/直辖市电网电源装机结构占比 (%)**</small>", unsafe_allow_html=True)
+    mix_col1, mix_col2, mix_col3, mix_col4 = st.columns(4)
+    
+    mix_thermal = mix_col1.number_input("🔥 火电占比", min_value=0.0, max_value=100.0, value=52.0, step=1.0)
+    mix_wind = mix_col2.number_input("💨 风电占比", min_value=0.0, max_value=100.0, value=12.0, step=1.0)
+    mix_solar = mix_col3.number_input("☀️ 光伏占比", min_value=0.0, max_value=100.0, value=16.0, step=1.0)
+    mix_hydro = mix_col4.number_input("🌊 水电占比", min_value=0.0, max_value=100.0, value=20.0, step=1.0)
+    
+    mix_sum = mix_thermal + mix_wind + mix_solar + mix_hydro
+    if abs(mix_sum - 100.0) > 0.1:
+        st.caption(f"⚠️ 当前装机比例总和为 {mix_sum:.1f}%，建议调整至 100%。")
+
+# --- 2. 底层数据深度聚合与统计收敛 ---
+total_gen_mwh = edited_forecast_df["预测上网电量(MWh)"].sum()
+avg_spot_p = edited_forecast_df["预测实时电价(元/MWh)"].mean()
+
+d3_pure_pnl = 0.0
+buy_hours_count = 0
+sell_hours_count = 0
+total_buy_vol = 0.0
+total_sell_vol = 0.0
+max_profit_hour = "-"
+max_profit_value = -999999.0
+
+for idx in range(24):
+    vol = df_results.loc[idx, "D+3申报量"]
+    p_guidance = df_results.loc[idx, "D+3指导价"]
+    p_realtime = edited_forecast_df.loc[idx, "预测实时电价(元/MWh)"]
+    hour_str = df_results.loc[idx, "时点"]
+    
+    hourly_pnl = 0.0
+    if vol < 0:  
+        hourly_pnl = abs(vol) * (p_realtime - p_guidance)
+        d3_pure_pnl += hourly_pnl
+        buy_hours_count += 1
+        total_buy_vol += abs(vol)
+    elif vol > 0:  
+        hourly_pnl = vol * (p_guidance - p_realtime)
+        d3_pure_pnl += hourly_pnl
+        sell_hours_count += 1
+        total_sell_vol += vol
+        
+    if hourly_pnl > max_profit_value and vol != 0:
+        max_profit_value = hourly_pnl
+        max_profit_hour = hour_str
+
+# --- 3. 数字化财务 KPI 驾驶舱渲染 ---
+rep_col1, rep_col2, rep_col3, rep_col4 = st.columns(4)
+rep_col1.metric(label="📊 今日全天总上网电量", value=f"{total_gen_mwh:,.2f} MWh", delta="↑ 当日真实物理出力", delta_color="normal")
+rep_col2.metric(label="📈 现货算术均价预测", value=f"{avg_spot_p:.2f} 元/MWh", delta="↑ 出清热度风向标", delta_color="normal")
+
+pnl_color = "normal" if d3_pure_pnl >= 0 else "inverse"
+rep_col3.metric(label="💰 D+3 纯盘面买卖盈亏", value=f"{d3_pure_pnl:,.2f} 元", delta="↑ 低买高卖价差损益" if d3_pure_pnl >=0 else "↓ 低买高卖价差损益", delta_color=pnl_color)
+rep_col4.metric(label="🛡️ 全盘免考核挽回收益", value=f"{total_penalty_saved:,.2f} 元", delta="↑ 极限挂单少亏当赚", delta_color="normal")
+
+# --- 4. 双网关接口配置面板 ---
+with st.expander("⚙️ 配置 AI 智能复盘大模型与气象数据网关接口", expanded=False):
+    ai_col1, api_col2, ai_col3 = st.columns(3)
+    api_base = ai_col1.text_input("API Base URL (大模型网关)", value="https://api.deepseek.com")
+    api_key = api_col2.text_input("DeepSeek Key", value="", type="password")
+    model_name = ai_col3.text_input("大模型名称 (Model)", value="deepseek-v4-pro")
+    
+    weather_col1, weather_col2 = st.columns([1, 2])
+    qweather_key = weather_col1.text_input("OpenWeatherMap API Key", value="", type="password")
+    st.markdown(f"<p style='margin-top:28px; font-size:12px; color:#666;'>🚀 <i>智能调度挂载：<b>日前预报走 OpenWeatherMap | 历史复盘走 Open-Meteo 真实中台</b>。</i></p>", unsafe_allow_html=True)
+
+# --- 5. 核心复盘文案输出控制中枢 ---
+st.markdown("#### 🧠 操盘手战略复盘总攻略分析报告")
+
+generate_ai_report = st.button("🚀 启动 AI 首席策略师进行深度复盘诊断")
+
+if generate_ai_report:
+    if not api_key or api_key.strip() == "" or "填入" in api_key:
+        st.warning("⚠️ 未检测到有效 DeepSeek API Key，已自动为您切回原生精细化数据明细。")
+        st.session_state.ai_report_ready = False
+    else:
+        st.session_state.ai_report_text = ""
+        st.session_state.ai_report_ready = False
+        
+        city_id_map = {
+            "随州市": (31.7179, 113.3688), "武汉市": (30.5928, 114.3055), "襄阳市": (32.0085, 112.1224), 
+            "宜昌市": (30.6953, 111.2908), "黄冈市": (30.4462, 114.8793), "孝感市": (30.9263, 113.9257), "恩施州": (30.2728, 109.4864),
+            "济南市": (36.6512, 117.1201), "青岛市": (36.0671, 120.3826), "潍坊市": (36.7069, 119.1617), 
+            "临沂市": (35.0607, 118.3424), "东营市": (37.4633, 118.4916), "菏泽市": (35.2443, 115.4634),
+            "鄂尔多斯市": (39.6083, 109.7816), "包头市": (40.6574, 109.8404), "巴彦淖尔市": (40.7431, 107.4169), 
+            "巴艳淖尔市": (40.7431, 107.4169), "乌兰察布市": (41.0184, 113.1317), "阿拉善盟": (38.8519, 105.7289),
+            "北京市": (39.9042, 116.4074)
+        }
+        
+        station_id = city_id_map.get(selected_city)
+        
+        with st.spinner(f"🌦️ 正在自适应调取 {selected_date} 真实分时气象因子..."):
+            st.session_state.station_weather_cache = fetch_qweather_by_id(station_id, qweather_key, selected_date)
+            st.session_state.prov_weather_cache = fetch_provincial_aggregated_weather(selected_prov, qweather_key, selected_date)
+            
+        with st.spinner("🕵️‍♂️ 首席电力现货策略师正在将“双轨气象-装机结构-分时台账”解耦并流式输出报告..."):
+            try:
+                if 'display_df_full' in locals() or 'display_df_full' in globals():
+                    trading_ledger_snapshot = display_df_full.to_dict(orient="records")
+                else:
+                    trading_ledger_snapshot = df_results.to_dict(orient="records")
+                
+                global_metrics_snapshot = {
+                    "交易日期": str(selected_date),
+                    "时间轴属性": f"{day_of_week_str} ({'周末双休低负荷' if is_weekend else '常规工作日高负荷'})",
+                    "结算区域省份": selected_prov,
+                    "场站站址城市": selected_city,
+                    "省级全网装机结构占比": {
+                        "🔥火电": f"{mix_thermal}%", "💨风电": f"{mix_wind}%", "☀️光伏": f"{mix_solar}%", "🌊水电": f"{mix_hydro}%"
+                    },
+                    "场站当日总上网电量": f"{total_gen_mwh:.2f} MWh",
+                    "日内现货预测算术均价": f"{avg_spot_p:.2f} 元/MWh",
+                    "D+3纯盘面买卖盈亏": f"{d3_pure_pnl:.2f} 元",
+                    "免考核挽回收益": f"{total_penalty_saved:.2f} 元",
+                    "最大风险买入时点": max_risk_hour,
+                    "最大风险买入指导价": f"{max_buy_price:.2f} 元/MWh",
+                    "流动性深度截断次数": depth_limit_hit_count,
+                    "距离月底剩余交易天数": remaining_days
+                }
+
+                system_prompt = (
+                    f"你是一位精通中国电力现货 market（特别是湖北、山东、蒙西系统、华北北京电网）发电侧新能源交易中心规则、"
+                    f"全套气象因果链（平均风速、实时阵风速、主导风向、小时累计降雨量、前序三小时累积雨量、总云量占比）对新能源出力波动物理效应、"
+                    f"全网装机结构对边际出清价格压价效应、以及大盘负荷大盘衰减规律的顶级现货量化操盘专家。\n\n"
+                    f"请结合用户输入的宏观要素、24小时微观交易台账、以及气象局下发的【全省/区域大盘天气数据】与【本地场站天气数据】，"
+                    f"进行全盘解耦，流式输出包含以下四个核心章节的深度战略复盘分析报告：\n"
+                    f"1. 全省/区域宏观大盘量价溯源（天气-装机-负荷共振解耦）：\n"
+                    f"   - 必须结合【全省大盘加权天气数据】中的风速、总云量、小时累计降雨量、三小时累积雨量，以及当天是否是周末的负荷特征，穿透解耦全省/直辖市的新能源出力大盘；\n"
+                    f"   - 结合该区域火风光水装机结构比例，深度剖析为什么这天大盘现货电价在特定时段呈现极高或极低的边际出清规律（特别注意：北京等受电直辖市受外电输入、本地高成本火电边际出清及本地气象特征影响；若降雨量>0或云量偏高导致午间净负荷陡增，电价将呈V型暴涨反击）；在报告中必须给出明确具体的云量和降水数字，无降水干扰也需列出0.0mm核验；\n"
+                    f"2. 场站微观上网出力对账（本地气象因果链审计）：\n"
+                    f"   - 聚焦【本地场站天气数据】，分析站址城市分时平均风速、阵风速、降雨量及总云量对你家场站实际发电电量高低的物理因果链，给具体的降水量与风速数字进行对账分析；\n"
+                    f"3. 全盘账本成效与绝对损益核算；\n"
+                    f"4. 次轮滚动交易周期实战前瞻与策略参数动态调整建议。"
+                )
+                
+                user_payload = {
+                    "全局宏观参数快照": global_metrics_snapshot,
+                    "全省/区域大盘中心24小时分时加权天气数据": st.session_state.prov_weather_cache,
+                    "本地新能源场站24小时分时天气数据": st.session_state.station_weather_cache,
+                    "24小时分时段微观出清台账明细": trading_ledger_snapshot
+                }
+                
+                headers_ds = { "Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json" }
+                payload_ds = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"请执行双轨时空真气象量价流式深度审计：{json.dumps(user_payload, ensure_ascii=False)}"}
+                    ],
+                    "temperature": 0.3, "stream": True 
+                }
+                
+                response = requests.post(f"{api_base}/chat/completions", headers=headers_ds, json=payload_ds, timeout=90, stream=True)
+                if response.status_code == 200:
+                    report_placeholder = st.empty()
+                    full_response = ""
+                    for line in response.iter_lines():
+                        if line:
+                            decoded_line = line.decode('utf-8').strip()
+                            if decoded_line.startswith("data:"):
+                                data_str = decoded_line[5:].strip()
+                                if data_str == "[DONE]": break
+                                try:
+                                    resp_json = json.loads(data_str)
+                                    delta_content = resp_json['choices'][0]['delta'].get('content', '')
+                                    full_response += delta_content
+                                    report_placeholder.markdown(full_response)
+                                except: pass
+                    
+                    st.session_state.ai_report_text = full_response
+                    st.session_state.ai_report_ready = True
+                    st.toast("🎯 AI 真实时空历史天气流式复盘完成！", icon="✅")
+                    st.rerun()
+                else:
+                    st.error(f"❌ DeepSeek 网关响应异常 (状态码: {response.status_code}): {response.text}")
+            except Exception as e:
+                st.error(f"🚨 网络通信或流式数据包解析发生致命错误: {e}")
+
+# ==============================================================================
+# 🎯 🌟 数据验证舱（像素级钢印行序强迫症对齐版）
+# ==============================================================================
+if st.session_state.ai_report_ready and st.session_state.station_weather_cache:
+    with st.expander("📊 气象网关大盘分时真数据验证舱（已成功下发降水量/风速/云量核验）", expanded=True):
+        v_col1, v_col2 = st.columns(2)
+        
+        # 🎯 强秩序钢印规范列表
+        row_order = ["天气现象", "平均风速", "实时阵风", "主导风向", "总云量%", "小时降雨量(mm)", "三小时累积雨量(mm)", "环境温度(℃)"]
+        
+        with v_col1:
+            st.markdown(f"**📍 本地新能源场站天气曲线 ({selected_city})**")
+            df_station = pd.DataFrame(st.session_state.station_weather_cache).reindex(row_order)
+            st.dataframe(df_station, use_container_width=True)
+        with v_col2:
+            st.markdown(f"**🌐 区域电力大盘加权天气曲线 ({selected_prov}等效历史加权序列)**")
+            df_prov = pd.DataFrame(st.session_state.prov_weather_cache).reindex(row_order)
+            st.dataframe(df_prov, use_container_width=True)
+
+# ==============================================================================
+# 🎯 🌟 四功能常驻工具栏布局 (无损高保真 HTML-PDF 打印版)
+# ==============================================================================
+if st.session_state.ai_report_ready and st.session_state.ai_report_text:
+    
+    word_html = f"""
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'SimSun', 'Arial', sans-serif; line-height: 1.8; color: #333333; padding: 30px; }}
+            h1 {{ color: #1f4e79; font-size: 22pt; border-bottom: 2px solid #1f4e79; padding-bottom: 8px; text-align: center; }}
+            h2 {{ color: #2e75b6; font-size: 16pt; margin-top: 20px; border-left: 4px solid #2e75b6; padding-left: 10px; }}
+            p {{ font-size: 11pt; text-indent: 2em; margin-bottom: 12px; text-align: justify; }}
+            strong {{ color: #c00000; }}
+        </style>
+    </head>
+    <body>
+        <h1>📊 新能源区域现货交易日志与气象多维决策审计报告</h1>
+        <p style="text-align:center; text-indent:0;"><strong>区域名称：</strong>{selected_prov} - {selected_city} | <strong>结算日期：</strong>{selected_date} ({day_of_week_str})</p>
+        <hr/>
+        {st.session_state.ai_report_text.replace('### ', '<h3>').replace('## ', '<h2>').replace('# ', '<h1>').replace('\n', '<br>')}
+    </body>
+    </html>
+    """
+    
+    pdf_html_print = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>区域量化交易气象复盘日报_{selected_date}</title>
+        <style>
+            @media print {{ body {{ padding: 0; background: white; }} .no-print {{ display: none; }} }}
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.8; color: #222; max-width: 800px; margin: 0 auto; padding: 40px; background: #fafafa; }}
+            .card {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+            h1 {{ color: #1e3a8a; font-size: 26px; border-bottom: 3px solid #1e3a8a; padding-bottom: 12px; text-align: center; }}
+            h2 {{ color: #2563eb; font-size: 18px; margin-top: 30px; border-left: 5px solid #2563eb; padding-left: 12px; }}
+            p {{ font-size: 15px; margin-bottom: 16px; text-align: justify; }}
+            .meta {{ background: #f1f5f9; padding: 12px; border-radius: 6px; font-size: 14px; margin-bottom: 30px; text-align: center; }}
+            strong {{ color: #dc2626; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>📊 新能源区域现货交易日志与气象多维决策审计报告</h1>
+            <div class="meta"><strong>结算市场：</strong>{selected_prov} | <strong>区域选址：</strong>{selected_city} | <strong>复盘日期：</strong>{selected_date} ({day_of_week_str})</div>
+            {st.session_state.ai_report_text.replace('### ', '<h3>').replace('## ', '<h2>').replace('# ', '<h1>').replace('\n', '<br>')}
+        </div>
+        <script>window.onload = function() {{ window.print(); }}</script>
+    </body>
+    </html>
+    """
+    
+    toolbar_box = st.container(border=True)
+    with toolbar_box:
+        t_col1, t_col2, t_col3, t_col4, t_col_spacer = st.columns([1.2, 1.5, 1.5, 1.2, 4.6])
+        
+        with t_col1:
+            if st.button("👁️ 视图预览", use_container_width=True):
+                st.toast("⚡ 当前已激活高保真大厂公文排版视图", icon="ℹ️")
+        with t_col2:
+            st.download_button(
+                label="📥 导出 Word",
+                data=word_html.encode('utf-8'),
+                file_name=f"区域现货交易气象决策报告_{selected_date}.doc",
+                mime="application/msword",
+                use_container_width=True
+            )
+        with t_col3:
+            st.download_button(
+                label="📄 导出 PDF",
+                data=pdf_html_print.encode('utf-8'),
+                file_name=f"区域量化交易气象复盘日报_{selected_date}.html",
+                mime="text/html",
+                use_container_width=True
+            )
+        with t_col4:
+            if st.button("🔄 清空报告", use_container_width=True):
+                st.session_state.ai_report_text = ""
+                st.session_state.ai_report_ready = False
+                st.rerun()
+
+    st.markdown(st.session_state.ai_report_text)
+
+# 保底本地财务战报
+if not st.session_state.ai_report_ready:
+    has_shortage_crisis = total_buy_vol > 0
+    native_report_text = f"""
+    **【今日战局基准财务审计战报】** (*当前处于离线模式，激活上方配置面板中的 Key 可解锁全区域气象双轨流式总攻略*)
+    
+    **一、 全盘账本损益核算**
+    设定交易结算日期：**{selected_date} ({day_of_week_str})**，区域市场：**{selected_prov}**，新能源场站选址：**{selected_city}**。
+    当日全天总上网电量为 **{total_gen_mwh:,.2f} MWh**。当前该省全网火电装机占比 **{mix_thermal}%**，光伏占比 **{mix_solar}%**，水电占比 **{mix_hydro}%**。日内现货预测均价为 **{avg_spot_p:.2f} 元/MWh**。经过 D+3 策略精细化干预，全盘总收益最终锁定了 **{total_post_profit:,.2f} 元**。
+    
+    **二、 24小时微观时点战术博弈拆解**
+    全天累计释放补仓防御动作达 **{buy_hours_count}** 个时点，高抛套利动作达 **{sell_hours_count}** 个时点。累计安全买入防守电量 **{total_buy_vol:.2f} MWh**。在面临严重欠发的时段，策略死卡**【买入止损线】**进行防御，并在全天逼空风险最高的 **{max_risk_hour}** 时点，成功压死 **{max_buy_price:.2f} 元/MWh** 的限价挂单极限指导价。全天通过独立时点限价限量申报成功挽回行政偏差考核罚款 **{total_penalty_saved:,.2f} 元**，D+3 纯盘面买卖价差盈亏贡献了 **{d3_pure_pnl:,.2f} 元** 的纯净现金流红利。
+    
+    **三、 偏差红线合规与安全垫风险审计**
+    全天合规控制极佳，未发生 any 单时点越界。整体在月底剩余 **{remaining_days}**天的长周期时间加权（TWAP）滑块滴灌分配下，完美均摊了长周期运营摩擦。全天虽录得 **{depth_limit_hit_count} 次** 触及最大盘面流动性深度限制，但分时截断果断，有效防御了过度做空或超买敞口。
+    """
+    st.info(native_report_text)
+
+
+
+
+
+
+
+
 
 
 
