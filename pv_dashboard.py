@@ -728,10 +728,10 @@ with macro_box:
     st.markdown("<small>⚡ **该省/直辖市电网电源装机结构占比 (%)**</small>", unsafe_allow_html=True)
     mix_col1, mix_col2, mix_col3, mix_col4 = st.columns(4)
     
-    mix_thermal = mix_col1.number_input("🔥 火电占比", min_value=0.0, max_value=100.0, value=52.0, step=1.0)
-    mix_wind = mix_col2.number_input("💨 风电占比", min_value=0.0, max_value=100.0, value=12.0, step=1.0)
-    mix_solar = mix_col3.number_input("☀️ 光伏占比", min_value=0.0, max_value=100.0, value=16.0, step=1.0)
-    mix_hydro = mix_col4.number_input("🌊 水电占比", min_value=0.0, max_value=100.0, value=20.0, step=1.0)
+    mix_thermal = mix_col1.number_input("🔥 火电占比", min_value=0.0, max_value=100.0, value=32.5, step=1.0)
+    mix_wind = mix_col2.number_input("💨 风电占比", min_value=0.0, max_value=100.0, value=7.5, step=1.0)
+    mix_solar = mix_col3.number_input("☀️ 光伏占比", min_value=0.0, max_value=100.0, value=33.0, step=1.0)
+    mix_hydro = mix_col4.number_input("🌊 水电占比", min_value=0.0, max_value=100.0, value=27.0, step=1.0)
     
     mix_sum = mix_thermal + mix_wind + mix_solar + mix_hydro
     if abs(mix_sum - 100.0) > 0.1:
