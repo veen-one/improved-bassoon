@@ -503,7 +503,6 @@ with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=T
 
 
 
-
 # ==============================================================================
 # 📋 彻底替换：区域风电光伏 D+3 数字化 AI 战报（全要素 Open-Meteo 双轨完璧版）
 # ==============================================================================
@@ -531,14 +530,16 @@ if "prov_weather_cache" not in st.session_state:
 
 # --- 🛠️ 工业级数据合规防护舱（没有数据输入时全部默认为零） ---
 if "df_results" not in st.session_state:
-    hours = [f"{i:02d}:00" for i in range(1, 25)]
+    # 恢复为你原始的 range(24) 即 00:00 - 23:00
+    hours = [f"{i:02d}:00" for i in range(24)]
     st.session_state.df_results = pd.DataFrame({
         "时点": hours,
         "D+3申报量": [0.0] * 24,
         "D+3指导价": [0.0] * 24
     })
 if "edited_forecast_df" not in st.session_state:
-    hours = [f"{i:02d}:00" for i in range(1, 25)]
+    # 恢复为你原始的 range(24) 即 00:00 - 23:00
+    hours = [f"{i:02d}:00" for i in range(24)]
     st.session_state.edited_forecast_df = pd.DataFrame({
         "时点": hours,
         "预测上网电量(MWh)": [0.0] * 24,
@@ -874,7 +875,6 @@ if generate_ai_report:
                         "🔥火电": f"{mix_thermal}%", "💨风电": f"{mix_wind}%", "☀️光伏": f"{mix_solar}%", "🌊水电": f"{mix_hydro}%"
                     },
                     "场站当日总上网电量": f"{total_gen_mwh:.2f} MWh",
-                    # 🛠️ 核心修正：大模型摘要参数更新为加权均价描述
                     "日内现货预测加权均价": f"{avg_spot_p:.2f} 元/MWh",
                     "D+3纯盘面买卖盈亏": f"{d3_pure_pnl:.2f} 元",
                     "免考核挽回收益": f"{total_penalty_saved:.2f} 元",
@@ -943,7 +943,8 @@ if st.session_state.ai_report_ready and st.session_state.station_weather_cache:
         v_col1, v_col2 = st.columns(2)
 
         row_order = ["天气现象", "平均风速", "实时阵风", "主导风向", "总云量%", "小时降雨量(mm)", "三小时累积雨量(mm)", "环境温度(℃)", "辐射量(W/㎡)"]
-        hours_24 = [f"{h:02d}:00" for h in range(1, 25)]
+        # 恢复为你原始的 range(24) 即 00:00 - 23:00
+        hours_24 = [f"{h:02d}:00" for h in range(24)]
         
         with v_col1:
             st.markdown(f"**📍 本地新能源场站天气曲线 ({selected_city})**")
