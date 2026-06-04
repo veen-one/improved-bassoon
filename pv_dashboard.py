@@ -588,10 +588,9 @@ def deg_to_compass(num):
 
 def get_refined_weather_text(cloud, precip):
     """
-    🎯 新能源发电侧专用：基于 [总云量 × 小时降雨量] 的二维物理因果律天气现象结算引擎
+    🎯 新新能源发电侧专用：基于 [总云量 × 小时降雨量] 的二维物理因果律天气现象结算引擎
     """
     if precip > 0:
-        # ======= 🌧️ 有降水时：解耦 [连续阴雨] 与 [突发对流性阵雨/雷阵雨] =======
         if cloud >= 85:
             if precip > 8.0: return "大雨"
             elif precip > 2.0: return "中雨"
@@ -602,7 +601,6 @@ def get_refined_weather_text(cloud, precip):
             else: 
                 return "阵雨"
     else:
-        # ======= ☀️ 无降水时：执行像素级高精光通量云量切片 =======
         if cloud <= 10: return "晴"
         elif cloud <= 35: return "大部分晴朗"
         elif cloud <= 60: return "晴间多云"
@@ -613,13 +611,12 @@ def get_refined_weather_text(cloud, precip):
 def fetch_qweather_by_id(location_id, api_key, target_date):
     """
     自适应双轨气象调度网关。
-    全面接入 Open-Meteo 核心预测与归档中台，不花一分钱原生白嫖 24小时逐小时 8大电力交易核心气象因子！
+    全面接入 Open-Meteo 核心预测与归档中台，畅享高精度太阳短波辐射量及小时级阵风。
     """
     lat, lon = location_id
     today = datetime.date.today()
     processed_weather = {}
     
-    # 统一物理参数指标配置链（全面拦截温度、云量、风速、阵风、风向、降水、短波太阳辐射量）
     metrics_slugs = "temperature_2m,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,shortwave_radiation"
 
     # 🎯 🌟 【双轨机制 A：复盘历史过去某天】 -> 穿透 Open-Meteo 历史归档档案馆
@@ -868,7 +865,7 @@ if generate_ai_report:
                 }
                 system_prompt = (
                     f"你是一位精通中国电力现货 market（特别是湖北、山东、蒙西系统、华北北京电网）发电侧新能源交易中心规则、"
-                    f"全套气象因果链（平均风速、实时阵风速、主导风向、小时累计降雨量、前序三小时累积雨量、总云量占比、太阳全局短波辐射量）对风电光伏出力波动物理效应、"
+                    f"全套气象因果链（平均风速、实时阵风速、主导风向、小时累计降雨量、前序三小时累积雨量、总云量占比精度、太阳全局短波辐射量）对风电光伏出力波动物理效应、"
                     f"全网装机结构对边际出清价格压网效应、以及大盘负荷大盘衰减规律的顶级现货量化操盘专家。\n\n"
                     f"请结合用户输入的宏观要素、24小时微观交易台账、以及气象局下发的【全省/区域大盘天气数据】与【本地场站天气数据】，"
                     f"进行全盘解耦，流式输出包含以下四个核心章节的深度战略复盘分析报告：\n"
@@ -931,12 +928,10 @@ if st.session_state.ai_report_ready and st.session_state.station_weather_cache:
         
         with v_col1:
             st.markdown(f"**📍 本地新能源场站天气曲线 ({selected_city})**")
-            # 🔥 【核心修复点】：改用 pd.DataFrame.from_dict 并显式锚定 columns 轴向，100% 免疫标量索引报错
             df_station = pd.DataFrame.from_dict(st.session_state.station_weather_cache, orient='columns').reindex(index=row_order, columns=hours_24)
             st.dataframe(df_station, use_container_width=True)
         with v_col2:
             st.markdown(f"**🌐 区域电力大盘加权天气曲线 ({selected_prov}等效历史加权序列)**")
-            # 🔥 【核心修复点】：改用 pd.DataFrame.from_dict 并显式锚定 columns 轴向，100% 免疫标量索引报错
             df_prov = pd.DataFrame.from_dict(st.session_state.prov_weather_cache, orient='columns').reindex(index=row_order, columns=hours_24)
             st.dataframe(df_prov, use_container_width=True)
 
@@ -994,7 +989,6 @@ if not st.session_state.ai_report_ready:
 全天合规控制极佳，未发生 any 单时点越界。整体在月底剩余 **{remaining_days}**天的长周期时间加权（TWAP）滑块滴灌分配下，完美均摊了长周期运营摩擦。全天虽录得 **{depth_limit_hit_count} 次** 触及最大盘面流动性深度限制，但分时截断果断，有效防御了过度做空或超买敞口。
 """
     st.info(native_report_text)
-
 
 
 
