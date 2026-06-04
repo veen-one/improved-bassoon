@@ -503,7 +503,6 @@ with st.expander("📝 展开查看完整 24小时 D+3 台账明细", expanded=T
 
 
 
-
 # ==============================================================================
 # 📋 彻底替换：区域风电光伏 D+3 数字化 AI 战报（全要素 Open-Meteo 双轨完璧版）
 # ==============================================================================
@@ -529,31 +528,31 @@ if "station_weather_cache" not in st.session_state:
 if "prov_weather_cache" not in st.session_state:
     st.session_state.prov_weather_cache = None
 
-# --- 🛠️ 工业级数据合规防护舱（防止上游 DataFrame 缺失导致页面挂起） ---
+# --- 🛠️ 工业级数据合规防护舱（没有数据输入时全部默认为零） ---
 if "df_results" not in st.session_state:
-    hours = [f"{i:02d}:00" for i in range(24)]
+    hours = [f"{i:02d}:00" for i in range(1, 25)]
     st.session_state.df_results = pd.DataFrame({
         "时点": hours,
-        "D+3申报量": np.random.uniform(-25, 35, 24).round(2),
-        "D+3指导价": np.random.uniform(260, 390, 24).round(2)
+        "D+3申报量": [0.0] * 24,
+        "D+3指导价": [0.0] * 24
     })
 if "edited_forecast_df" not in st.session_state:
-    hours = [f"{i:02d}:00" for i in range(24)]
+    hours = [f"{i:02d}:00" for i in range(1, 25)]
     st.session_state.edited_forecast_df = pd.DataFrame({
         "时点": hours,
-        "预测上网电量(MWh)": np.random.uniform(15, 90, 24).round(2),
-        "预测实时电价(元/MWh)": np.random.uniform(180, 440, 24).round(2)
+        "预测上网电量(MWh)": [0.0] * 24,
+        "预测实时电价(元/MWh)": [0.0] * 24
     })
 
 # 数据状态本地还原
 df_results = st.session_state.df_results
 edited_forecast_df = st.session_state.edited_forecast_df
 
-# 财务与长周期考核边界滑块缺省对齐
-total_penalty_saved = 16840.50 if 'total_penalty_saved' not in locals() and 'total_penalty_saved' not in globals() else total_penalty_saved
-remaining_days = 11 if 'remaining_days' not in locals() and 'remaining_days' not in globals() else remaining_days
-depth_limit_hit_count = 1 if 'depth_limit_hit_count' not in locals() and 'depth_limit_hit_count' not in globals() else depth_limit_hit_count
-total_post_profit = 94200.00 if 'total_post_profit' not in locals() and 'total_post_profit' not in globals() else total_post_profit
+# 财务与长周期考核边界在无外部数据输入时，默认值清零对齐
+total_penalty_saved = 0.0 if 'total_penalty_saved' not in locals() and 'total_penalty_saved' not in globals() else total_penalty_saved
+remaining_days = 0 if 'remaining_days' not in locals() and 'remaining_days' not in globals() else remaining_days
+depth_limit_hit_count = 0 if 'depth_limit_hit_count' not in locals() and 'depth_limit_hit_count' not in globals() else depth_limit_hit_count
+total_post_profit = 0.0 if 'total_post_profit' not in locals() and 'total_post_profit' not in globals() else total_post_profit
 
 # 🎯 工业级全网大盘新能源装机中心高精度 GPS 格点经纬度矩阵
 PROV_METEO_WEIGHTS = {
@@ -588,7 +587,7 @@ def deg_to_compass(num):
 
 def get_refined_weather_text(cloud, precip):
     """
-    🎯 新能源发电侧专用：基于 [总云量 × 小时降雨量] 的二维物理因果律天气现象结算引擎
+    🎯 新新能源发电侧专用：基于 [总云量 × 小时降雨量] 的二维物理因果律天气现象结算引擎
     """
     if precip > 0:
         # ======= 🌧️ 有降水时：解耦 [连续阴雨] 与 [突发对流性阵雨/雷阵雨] =======
@@ -754,7 +753,7 @@ with macro_box:
     selected_prov = loc_col1.selectbox("省级区域市场 (省份)", options=list(prov_city_map.keys()), index=0)
     selected_city = loc_col2.selectbox("新能源场站站址 (城市)", options=prov_city_map[selected_prov], index=0)
 
-    st.markdown("<small>⚡ **该省/直辖市电网电源装机结构占比 (%)**</small>", unsafe_allow_html=True)
+    st.markdown("<small>⚡ **该省/直辖市电网电源装装机结构占比 (%)**</small>", unsafe_allow_html=True)
     mix_col1, mix_col2, mix_col3, mix_col4 = st.columns(4)
 
     mix_thermal = mix_col1.number_input("🔥 火电占比", min_value=0.0, max_value=100.0, value=32.5, step=1.0)
@@ -767,8 +766,8 @@ with macro_box:
         st.caption(f"⚠️ 当前装机比例总和为 {mix_sum:.1f}%，建议调整至 100%。")
 
 # --- 2. 底层数据深度聚合与统计收敛 ---
-total_gen_mwh = edited_forecast_df["预测上网电量(MWh)"].sum()
-avg_spot_p = edited_forecast_df["预测实时电价(元/MWh)"].mean()
+total_gen_mwh = edited_forecast_df["预测上网电量(MWh)"].sum() if "预测上网电量(MWh)" in edited_forecast_df.columns else 0.0
+avg_spot_p = edited_forecast_df["预测实时电价(元/MWh)"].mean() if "预测实时电价(元/MWh)" in edited_forecast_df.columns else 0.0
 d3_pure_pnl = 0.0
 buy_hours_count = 0
 sell_hours_count = 0
@@ -777,27 +776,29 @@ total_sell_vol = 0.0
 max_profit_hour = "-"
 max_profit_value = -999999.0
 
-for idx in range(24):
-    vol = df_results.loc[idx, "D+3申报量"]
-    p_guidance = df_results.loc[idx, "D+3指导价"]
-    p_realtime = edited_forecast_df.loc[idx, "预测实时电价(元/MWh)"]
-    hour_str = df_results.loc[idx, "时点"]
+# 当且仅当上游存在算账数据时，进行时点财务动态扫描
+if "D+3申报量" in df_results.columns and "D+3指导价" in df_results.columns:
+    for idx in range(len(df_results)):
+        vol = df_results.loc[idx, "D+3申报量"]
+        p_guidance = df_results.loc[idx, "D+3指导价"]
+        p_realtime = edited_forecast_df.loc[idx, "预测实时电价(元/MWh)"] if idx < len(edited_forecast_df) else 0.0
+        hour_str = df_results.loc[idx, "时点"]
 
-    hourly_pnl = 0.0
-    if vol < 0:  
-        hourly_pnl = abs(vol) * (p_realtime - p_guidance)
-        d3_pure_pnl += hourly_pnl
-        buy_hours_count += 1
-        total_buy_vol += abs(vol)
-    elif vol > 0:  
-        hourly_pnl = vol * (p_guidance - p_realtime)
-        d3_pure_pnl += hourly_pnl
-        sell_hours_count += 1
-        total_sell_vol += vol
-        
-    if hourly_pnl > max_profit_value and vol != 0:
-        max_profit_value = hourly_pnl
-        max_profit_hour = hour_str
+        hourly_pnl = 0.0
+        if vol < 0:  
+            hourly_pnl = abs(vol) * (p_realtime - p_guidance)
+            d3_pure_pnl += hourly_pnl
+            buy_hours_count += 1
+            total_buy_vol += abs(vol)
+        elif vol > 0:  
+            hourly_pnl = vol * (p_guidance - p_realtime)
+            d3_pure_pnl += hourly_pnl
+            sell_hours_count += 1
+            total_sell_vol += vol
+            
+        if hourly_pnl > max_profit_value and vol != 0:
+            max_profit_value = hourly_pnl
+            max_profit_hour = hour_str
 
 # --- 3. 数字化财务 KPI 驾驶舱渲染 ---
 rep_col1, rep_col2, rep_col3, rep_col4 = st.columns(4)
@@ -862,7 +863,7 @@ if generate_ai_report:
                     "D+3纯盘面买卖盈亏": f"{d3_pure_pnl:.2f} 元",
                     "免考核挽回收益": f"{total_penalty_saved:.2f} 元",
                     "最大风险买入时点": max_profit_hour,
-                    "最大风险买入指导价": f"{max_profit_value:.2f} 元/MWh",
+                    "最大风险买入指导价": f"{max_profit_value if max_profit_value != -999999.0 else 0.0:.2f} 元/MWh",
                     "流动性深度截断次数": depth_limit_hit_count,
                     "距离月底剩余交易天数": remaining_days
                 }
@@ -919,24 +920,21 @@ if generate_ai_report:
                 st.error(f"🚨 网络通信或流式数据包解析发生致命错误: {e}")
 
 # ==============================================================================
-# 🎯 🌟 数据验证舱（00:00-23:00 全矩阵标准解耦平齐版 - 彻底修复 ValueError 索引钢印凭证）
+# 🎯 🌟 数据验证舱（00:00-23:00 全矩阵标准解耦平齐版）
 # ==============================================================================
 if st.session_state.ai_report_ready and st.session_state.station_weather_cache:
     with st.expander("📊 气象网关大盘分时真数据验证舱（已成功下发降水量/风速/云量/辐射量核验）", expanded=True):
         v_col1, v_col2 = st.columns(2)
 
-        # 🎯 强秩序钢印：规范行序列与标准的 00:00 - 23:00 原始列序列
         row_order = ["天气现象", "平均风速", "实时阵风", "主导风向", "总云量%", "小时降雨量(mm)", "三小时累积雨量(mm)", "环境温度(℃)", "辐射量(W/㎡)"]
-        hours_24 = [f"{h:02d}:00" for h in range(24)]
+        hours_24 = [f"{h:02d}:00" for h in range(1, 25)]
         
         with v_col1:
             st.markdown(f"**📍 本地新能源场站天气曲线 ({selected_city})**")
-            # 🔥 【核心修复点】：改用 pd.DataFrame.from_dict 并显式锚定 columns 轴向，100% 免疫标量索引报错
             df_station = pd.DataFrame.from_dict(st.session_state.station_weather_cache, orient='columns').reindex(index=row_order, columns=hours_24)
             st.dataframe(df_station, use_container_width=True)
         with v_col2:
             st.markdown(f"**🌐 区域电力大盘加权天气曲线 ({selected_prov}等效历史加权序列)**")
-            # 🔥 【核心修复点】：改用 pd.DataFrame.from_dict 并显式锚定 columns 轴向，100% 免疫标量索引报错
             df_prov = pd.DataFrame.from_dict(st.session_state.prov_weather_cache, orient='columns').reindex(index=row_order, columns=hours_24)
             st.dataframe(df_prov, use_container_width=True)
 
@@ -976,6 +974,7 @@ if st.session_state.ai_report_ready and st.session_state.ai_report_text:
                 st.session_state.ai_report_text = ""
                 st.session_state.ai_report_ready = False
                 st.rerun()
+
 st.markdown(st.session_state.ai_report_text)
 
 # 保底本地财务战报
@@ -984,14 +983,14 @@ if not st.session_state.ai_report_ready:
     native_report_text = f"""【今日战局基准财务审计战报】 (当前处于离线模式，激活上方配置面板中的 Key 可解锁全区域气象双轨流式总攻略)
 
 **一、 全盘账本损益核算**
-设定交易结算日期：**{selected_date} ({day_of_week_str})**，区域市场：**{selected_prov}**，新能源场站选址：**{selected_city}**。
+设定交易结算日期：**{selected_date} ({day_of_week_str})**，区域 market：**{selected_prov}**，新能源场站选址：**{selected_city}**。
 当日全天总上网电量为 **{total_gen_mwh:,.2f} MWh**。当前该省全网火电装机占比 **{mix_thermal}%**，光伏占比 **{mix_solar}%**，水电占比 **{mix_hydro}%**。日内现货预测均价为 **{avg_spot_p:.2f} 元/MWh**。经过 D+3 策略精细化干预，全盘总收益最终锁定了 **{total_post_profit:,.2f} 元**。
 
 **二、 24小时微观时点战术博弈拆解**
-全天累计释放补仓防御动作达 **{buy_hours_count}** 个时点，高抛套利动作达 **{sell_hours_count}** 个时点。累计安全买入防守电量 **{total_buy_vol:.2f} MWh**。在面临严重欠发的时段，策略死卡**【买入止损线】**进行防御，并在全天逼空风险最高的 **{max_profit_hour}** 时点，成功压死 **{max_profit_value:.2f} 元/MWh** 的限价挂单极限指导价。全天通过独立时点限价限量申报成功挽回行政偏差考核罚款 **{total_penalty_saved:,.2f} 元**，D+3 纯盘面买卖价差盈亏贡献了 **{d3_pure_pnl:,.2f} 元** 的纯净现金流红利。
+全天累计释放补仓防御动作达 **{buy_hours_count}** 个时点，高抛套利动作达 **{sell_hours_count}** 个时点。累计安全买入防守电量 **{total_buy_vol:.2f} MWh**。在面临严重欠发的时段，策略死卡**【买入止损线】**进行防御，并在全天逼空风险最高的 **{max_profit_hour}** 时点，成功压死 **{max_profit_value if max_profit_value != -999999.0 else 0.0:.2f} 元/MWh** 的限价挂单极限指导价。全天通过独立时点限价限量申报成功挽回行政偏差考核罚款 **{total_penalty_saved:,.2f} 元**，D+3 纯盘面买卖价差盈亏贡献了 **{d3_pure_pnl:,.2f} 元** 的纯净现金流红利。
 
 **三、 偏差红线合规与安全垫风险审计**
-全天合规控制极佳，未发生 any 单时点越界。整体在月底剩余 **{remaining_days}**天的长周期时间加权（TWAP）滑块滴灌分配下，完美均摊了长周期运营摩擦。全天虽录得 **{depth_limit_hit_count} 次** 触及最大盘面流动性深度限制，但分时截断果断，有效防御了过度做空或超买敞口。
+全天合规控制极佳，未发生 any 单时点越界。整体在月底剩余 **{remaining_days}** 天的长周期时间加权（TWAP）滑块滴灌分配下，完美均摊了长周期运营摩擦。全天虽录得 **{depth_limit_hit_count} 次** 触及最大盘面流动性深度限制，但分时截断果断，有效防御了过度做空或超买敞口。
 """
     st.info(native_report_text)
 
