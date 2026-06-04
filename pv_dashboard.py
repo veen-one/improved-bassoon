@@ -775,7 +775,13 @@ with macro_box:
 
 # --- 2. 底层数据深度聚合与统计收敛 ---
 total_gen_mwh = edited_forecast_df["预测上网电量(MWh)"].sum() if "预测上网电量(MWh)" in edited_forecast_df.columns else 0.0
-avg_spot_p = edited_forecast_df["预测实时电价(元/MWh)"].mean() if "预测实时电价(元/MWh)" in edited_forecast_df.columns else 0.0
+
+# 🛠️ 核心修正：彻底废除算术平均，改用标准的[电量加权均价]计算公式 (∑(电量 * 电价) / ∑电量)
+if "预测上网电量(MWh)" in edited_forecast_df.columns and "预测实时电价(元/MWh)" in edited_forecast_df.columns and total_gen_mwh > 0:
+    avg_spot_p = (edited_forecast_df["预测上网电量(MWh)"] * edited_forecast_df["预测实时电价(元/MWh)"]).sum() / total_gen_mwh
+else:
+    avg_spot_p = 0.0
+
 d3_pure_pnl = 0.0
 buy_hours_count = 0
 sell_hours_count = 0
@@ -811,7 +817,8 @@ if "D+3申报量" in df_results.columns and "D+3指导价" in df_results.columns
 # --- 3. 数字化财务 KPI 驾驶舱渲染 ---
 rep_col1, rep_col2, rep_col3, rep_col4 = st.columns(4)
 rep_col1.metric(label="📊 今日全天总上网电量", value=f"{total_gen_mwh:,.2f} MWh", delta="↑ 当日真实物理出力", delta_color="normal")
-rep_col2.metric(label="📈 现货算术均价预测", value=f"{avg_spot_p:.2f} 元/MWh", delta="↑ 出清热度风向标", delta_color="normal")
+# 🛠️ 核心修正：指标标签更改为加权均价
+rep_col2.metric(label="📈 现货加权均价预测", value=f"{avg_spot_p:.2f} 元/MWh", delta="↑ 出清热度风向标", delta_color="normal")
 pnl_color = "normal" if d3_pure_pnl >= 0 else "inverse"
 rep_col3.metric(label="💰 D+3 纯盘面买卖盈亏", value=f"{d3_pure_pnl:,.2f} 元", delta="↑ 低买高卖价差损益" if d3_pure_pnl >=0 else "↓ 低买高卖价差损益", delta_color=pnl_color)
 rep_col4.metric(label="🛡️ 全盘免考核挽回收益", value=f"{total_penalty_saved:,.2f} 元", delta="↑ 极限挂单少亏当赚", delta_color="normal")
@@ -867,7 +874,8 @@ if generate_ai_report:
                         "🔥火电": f"{mix_thermal}%", "💨风电": f"{mix_wind}%", "☀️光伏": f"{mix_solar}%", "🌊水电": f"{mix_hydro}%"
                     },
                     "场站当日总上网电量": f"{total_gen_mwh:.2f} MWh",
-                    "日内现货预测算术均价": f"{avg_spot_p:.2f} 元/MWh",
+                    # 🛠️ 核心修正：大模型摘要参数更新为加权均价描述
+                    "日内现货预测加权均价": f"{avg_spot_p:.2f} 元/MWh",
                     "D+3纯盘面买卖盈亏": f"{d3_pure_pnl:.2f} 元",
                     "免考核挽回收益": f"{total_penalty_saved:.2f} 元",
                     "最大风险买入时点": max_profit_hour,
@@ -1001,8 +1009,6 @@ if not st.session_state.ai_report_ready:
 全天合规控制极佳，未发生 any 单时点越界。整体在月底剩余 **{remaining_days}** 天的长周期时间加权（TWAP）滑块滴灌分配下，完美均摊了长周期运营摩擦。全天虽录得 **{depth_limit_hit_count} 次** 触及最大盘面流动性深度限制，但分时截断果断，有效防御了过度做空或超买敞口。
 """
     st.info(native_report_text)
-
-
 
 
 
