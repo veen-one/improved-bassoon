@@ -110,8 +110,8 @@ max_dev = st.sidebar.slider("考核惩罚红线 (%)", min_value=1.0, max_value=1
 alert_dev = st.sidebar.slider("强制干预预警线 (%)", min_value=1.0, max_value=10.0, value=4.5, step=0.5) / 100.0
 
 coef_actual = st.sidebar.number_input("累计上网电量系数", value=0.80, step=0.05)
-coef_contract_short = st.sidebar.number_input("中长期净合约 缺额系数", value=0.90, step=0.05)
-coef_contract_over = st.sidebar.number_input("中长期净合约 超额系数", value=1.10, step=0.05)
+coef_contract_short = st.sidebar.number_input("中长期净合约 缺额系数", value=0.80, step=0.05)
+coef_contract_over = st.sidebar.number_input("中长期净合约 超额系数", value=1.20, step=0.05)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**⏳ 3. 跨期平滑时间设置**")
