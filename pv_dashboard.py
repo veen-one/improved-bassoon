@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 import numpy as np
 
 # ================= 页面全局配置 =================
-st.set_page_config(page_title="湖北风电光伏 D+3 现货实战沙盘", layout="wide")
+st.set_page_config(page_title="湖北风电光伏 日级策略 现货实战沙盘", layout="wide")
 hide_st_style = """
 <style>
 /* 隐藏右下角“管理应用 / Manage app”按钮（强制覆盖） */
@@ -69,7 +69,7 @@ components.html(
     height=0,
 )
 
-st.title("⚡ 湖北风电光伏 D+3 时点级交易沙盘 ")
+st.title("⚡ 湖北风电光伏 日级策略 时点级交易沙盘 ")
 st.markdown("💡 **核心特性**：1-24时点标准 | **时间加权配额(TWAP)+收益PK引擎** | 纯净原生输入 | 动态止损线")
 
 hours_1_to_24 = [f"{i:02d}:00" for i in range(1, 25)]
